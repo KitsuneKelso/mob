@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"math/rand"
 	"net/http"
 	"os"
 	"os/exec"
@@ -766,6 +767,12 @@ func execute(command string, parameter []string, configuration Configuration) {
 		}
 	case "moo":
 		moo(configuration)
+	case "ace":
+		ace(configuration)
+	case "say":
+		soundCheck(parameter[0], configuration)
+	case "who":
+		whoGoesNext(parameter, configuration)
 	case "sw", "squash-wip":
 		if len(parameter) > 1 && parameter[0] == "--git-editor" {
 			squashWipGitEditor(parameter[1], configuration)
@@ -779,6 +786,11 @@ func execute(command string, parameter []string, configuration Configuration) {
 	default:
 		help(configuration)
 	}
+}
+
+func ace(configuration Configuration) {
+	voiceMessage := "Hello team ace, you are all very lovely today!"
+	sayWithSound(voiceMessage, configuration)
 }
 
 func clean(configuration Configuration) {
@@ -1051,15 +1063,24 @@ func currentTime() string {
 
 func moo(configuration Configuration) {
 	voiceMessage := "moo"
-	err := executeCommandsInBackgroundProcess(getVoiceCommand(voiceMessage, configuration.VoiceCommand))
+	sayWithSound(voiceMessage, configuration)
+}
 
-	if err != nil {
-		sayWarning(fmt.Sprintf("can't run voice command on your system (%s)", runtime.GOOS))
-		sayWarning(err.Error())
-		return
-	}
+func soundCheck(voiceMessage string, configuration Configuration) {
+	sayWithSound(voiceMessage, configuration)
+}
 
-	sayInfo(voiceMessage)
+func whoGoesNext(names []string, configuration Configuration) {
+	/*	NOTE:
+		Top-level functions, such as Float64 and Int, use a default shared Source that produces
+		a deterministic sequence of values each time a program is run. Use the Seed function to
+		initialize the default Source if different behavior is required for each run.
+	*/
+	rand.Seed(time.Now().UnixNano())
+
+	numberOfPeople := len(names)
+	nextPersonIndex := rand.Intn(numberOfPeople)
+	sayWithSound("I suggest that " + names[nextPersonIndex] + " goes next", configuration)
 }
 
 func reset(configuration Configuration) {
@@ -1135,6 +1156,8 @@ func start(configuration Configuration) error {
 	sayLastCommitsList(currentBaseBranch.String(), currentWipBranch.String())
 
 	openLastModifiedFileIfPresent(configuration)
+
+	sayWithSound("mob start", configuration)
 
 	return nil // no error
 }
@@ -1451,6 +1474,7 @@ func done(configuration Configuration) {
 
 		if hasUncommittedChanges() {
 			sayNext("To finish, use", "git commit")
+			sayWithOnlySound("Mob done, good job everyone!", configuration)
 		} else if configuration.DoneSquash == Squash {
 			sayInfo("nothing was done, so nothing to commit")
 		}
@@ -1587,6 +1611,7 @@ func showNext(configuration Configuration) {
 	if nextTypist != "" {
 		sayInfo("Committers after your last commit: " + strings.Join(previousCommitters, ", "))
 		sayInfo("***" + nextTypist + "*** is (probably) next.")
+		sayWithOnlySound(nextTypist + " is probably next", configuration)
 	}
 }
 
@@ -1853,6 +1878,28 @@ func sayWithPrefix(s string, prefix string) {
 	lines := strings.Split(strings.TrimSpace(s), "\n")
 	for i := 0; i < len(lines); i++ {
 		printToConsole(prefix + strings.TrimSpace(lines[i]) + "\n")
+	}
+}
+
+func sayWithSound(s string, configuration Configuration) {
+	err := executeCommandsInBackgroundProcess(getVoiceCommand(s, configuration.VoiceCommand))
+
+	if err != nil {
+		sayWarning(fmt.Sprintf("can't run voice command on your system (%s)", runtime.GOOS))
+		sayWarning(err.Error())
+		return
+	}
+
+	sayInfo(s)
+}
+
+func sayWithOnlySound(s string, configuration Configuration) {
+	err := executeCommandsInBackgroundProcess(getVoiceCommand(s, configuration.VoiceCommand))
+
+	if err != nil {
+		sayWarning(fmt.Sprintf("can't run voice command on your system (%s)", runtime.GOOS))
+		sayWarning(err.Error())
+		return
 	}
 }
 
